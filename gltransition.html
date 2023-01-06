@@ -29,16 +29,13 @@
         background.width = app.screen.width;
         background.height = app.screen.height;
         app.stage.addChild(background);
-        const vertextShader = `
-        attribute vec2 _p;
-        varying vec2 _uv;
-        void main() {
-            gl_Position = vec4(_p, 0.0, 1.0);
-            _uv = vec2(0.5, 0.5) * (_p+vec2(1.0, 1.0));
-        }`
+        app.stop();
 
-        const vertextShader2 = `
+        PIXI.Assets.load('examples/assets/bg_rotate.jpg').then(onAssetsLoaded);
+
+        const vertextShader = `
         attribute vec2 aVertexPosition;
+        varying vec2 _uv;                          // gl-transition
         uniform mat3 projectionMatrix;
         uniform vec4 inputSize;
         uniform vec4 outputFrame;
@@ -59,79 +56,82 @@
         {
             gl_Position = filterVertexPosition();
             vTextureCoord = filterTextureCoord();
+            _uv = vec2(0.5, 0.5) * (aVertexPosition +vec2(1.0, 1.0));    // gl-transition
         }`
 
-        const resizeModes= {
-            cover: (r) =>
-                `.5+(uv-.5)*vec2(min(ratio/${r},1.),min(${r}/ratio,1.))`,
-            contain: (r) =>
-                `.5+(uv-.5)*vec2(max(ratio/${r},1.),max(${r}/ratio,1.))`,
-            stretch: () => "uv",
-        }
-
-        const makeFrag = (transitionGlsl, resizeMode) => {
-            const r = resizeModes[resizeMode];
-            if (!r) throw new Error("invalid resizeMode=" + resizeMode);
-            return `
+        const fragmentShader = `
             precision highp float;
+            varying vec2 vTextureCoord;
             varying vec2 _uv;
-            uniform sampler2D from, to;
+            uniform sampler2D uSampler, to;
             uniform float progress, ratio, _fromR, _toR;
+
+
+            uniform float customUniform;
+            uniform float count; // = 10.0
+            uniform float smoothness; // = 0.5
+
             vec4 getFromColor(vec2 uv){
-                return texture2D(from,${r("_fromR")});
+                return texture2D(uSampler, .5+(uv-.5)*vec2(min(ratio/_fromR,1.), min(_fromR/ratio,1.)));
             }
             vec4 getToColor(vec2 uv){
-                return texture2D(to,${r("_toR")});
+                return texture2D(to, .5+(uv-.5)*vec2(min(ratio/_toR,1.), min(_toR/ratio,1.)));
             }
-            ${transitionGlsl}
+            vec4 transition (vec2 uv) {
+                
+                // flip window
+                // float pr = smoothstep(-smoothness, 0.0, uv.x - progress * (1.0 + smoothness));
+                // float s = step(pr, fract(count * uv.x));
+                // return mix(getFromColor(uv), vec4(.5, .0, .5, 1), s);
+
+                vec4 color1 = getFromColor(uv);
+                vec4 color2 = getToColor(uv);
+                vec4 color = mix(color1, color2, progress);
+                return color; 
+            }
             void main(){
-                gl_FragColor=transition(_uv);
-            }`;
-        };
-
-        transitionGlsl = `
-        vec4 transition (vec2 uv) {
-            return mix(
-                getFromColor(uv),
-                getToColor(uv),
-                progress
-            );
-        }`
-
-        const fragmentShader = makeFrag(transitionGlsl, 'cover')
-
-
-        const fragmentShader2 = `
-            precision mediump float;
-            varying vec2 vTextureCoord;
-            uniform sampler2D uSampler;
-            uniform float customUniform;
-
-            void main(void)
-            {
-                vec2 uvs = vTextureCoord.xy;
-                vec4 fg = texture2D(uSampler, vTextureCoord);
-                fg.b = uvs.y + cos(customUniform);
+                vec2 uv = vTextureCoord.xy;
+                vec4 fg = transition(vTextureCoord);
+                // fg.b = uv.y + sin(customUniform);
                 gl_FragColor = fg;
             }`
-        let filter = new PIXI.Filter(vertextShader2, fragmentShader2, {
-            customUniform: 0.5,
-            ratio: background.width / background.height,
-            progress: 0.5,
-            to: null,
-            _fromR:  background.width / background.height,
-            _toR:  background.width / background.height,
-        });
-        background.filters = [filter];
-        app.ticker.add((delta) => {
-            filter.uniforms.customUniform += 0.04 * delta;
-            // filter.uniforms.ratio = width / height;
-            // filter.uniforms.progress = progress;
-            // filter.uniforms.from = from.bind(0);  // texture2d
-            // filter.uniforms.to = to.bind(1);      // texture2d
-            // filter.uniforms._fromR = from.shape[0] / from.shape[1];
-            // filter.uniforms._toR = to.shape[0] / to.shape[1];
-        });
+
+            function onAssetsLoaded(to) {
+                // to.baseTexture.wrapMode = PIXI.WRAP_MODES.REPEAT;
+                // to.baseTexture.mipmap = false;
+                // to.width = to.height = 200;
+
+                let filter = new PIXI.Filter(vertextShader, fragmentShader, {
+                    customUniform: 0,
+                    ratio: background.width / background.height,
+                    progress: 0,
+                    to: to,
+                    _fromR:  background.width / background.height,
+                    _toR:  background.width / background.height,
+                });
+                background.filters = [filter];
+                app.ticker.add((delta) => {
+                    filter.uniforms.customUniform += 0.02 * delta;
+                    filter.uniforms.progress = Math.abs(Math.sin(filter.uniforms.customUniform))
+                    // filter.uniforms.ratio = width / height;
+                    // filter.uniforms.progress = progress;
+                    // filter.uniforms.from = from.bind(0);  // texture2d
+                    // filter.uniforms.to = to.bind(1);      // texture2d
+                    // filter.uniforms._fromR = from.shape[0] / from.shape[1];
+                    // filter.uniforms._toR = to.shape[0] / to.shape[1];
+                });
+                app.start();
+            }
+        
+
+        // const resizeModes= {
+        //     cover: (r) =>
+        //         `.5+(uv-.5)*vec2(min(ratio/${r},1.),min(${r}/ratio,1.))`,
+        //     contain: (r) =>
+        //         `.5+(uv-.5)*vec2(max(ratio/${r},1.),max(${r}/ratio,1.))`,
+        //     stretch: () => "uv",
+        // }
+
     }</script>
 </body>
 
