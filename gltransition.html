@@ -1,0 +1,138 @@
+<html>
+<head>
+    <style>
+        body,
+        html {
+            margin: 0px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <script src="/lib/jquery.js"></script>
+    <script src="/lib/pixi.js"></script>
+    <script src="/lib/gsap.js"></script>
+    <script src="/lib/gl-transition.js"></script>
+    <script>window.onload = function () {
+        const GLTransitions = window.GLTransitions
+        const app = new PIXI.Application();
+        document.body.appendChild(app.view);
+
+        // Create background image
+        const background = PIXI.Sprite.from('examples/assets/bg_grass.jpg');
+        background.width = app.screen.width;
+        background.height = app.screen.height;
+        app.stage.addChild(background);
+        const vertextShader = `
+        attribute vec2 _p;
+        varying vec2 _uv;
+        void main() {
+            gl_Position = vec4(_p, 0.0, 1.0);
+            _uv = vec2(0.5, 0.5) * (_p+vec2(1.0, 1.0));
+        }`
+
+        const vertextShader2 = `
+        attribute vec2 aVertexPosition;
+        uniform mat3 projectionMatrix;
+        uniform vec4 inputSize;
+        uniform vec4 outputFrame;
+        varying vec2 vTextureCoord;
+
+        vec4 filterVertexPosition( void )
+        {
+            vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;
+            return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+        }
+
+        vec2 filterTextureCoord( void )
+        {
+            return aVertexPosition * (outputFrame.zw * inputSize.zw);
+        }
+
+        void main(void)
+        {
+            gl_Position = filterVertexPosition();
+            vTextureCoord = filterTextureCoord();
+        }`
+
+        const resizeModes= {
+            cover: (r) =>
+                `.5+(uv-.5)*vec2(min(ratio/${r},1.),min(${r}/ratio,1.))`,
+            contain: (r) =>
+                `.5+(uv-.5)*vec2(max(ratio/${r},1.),max(${r}/ratio,1.))`,
+            stretch: () => "uv",
+        }
+
+        const makeFrag = (transitionGlsl, resizeMode) => {
+            const r = resizeModes[resizeMode];
+            if (!r) throw new Error("invalid resizeMode=" + resizeMode);
+            return `
+            precision highp float;
+            varying vec2 _uv;
+            uniform sampler2D from, to;
+            uniform float progress, ratio, _fromR, _toR;
+            vec4 getFromColor(vec2 uv){
+                return texture2D(from,${r("_fromR")});
+            }
+            vec4 getToColor(vec2 uv){
+                return texture2D(to,${r("_toR")});
+            }
+            ${transitionGlsl}
+            void main(){
+                gl_FragColor=transition(_uv);
+            }`;
+        };
+
+        transitionGlsl = `
+        vec4 transition (vec2 uv) {
+            return mix(
+                getFromColor(uv),
+                getToColor(uv),
+                progress
+            );
+        }`
+
+        const fragmentShader = makeFrag(transitionGlsl, 'cover')
+
+
+        const fragmentShader2 = `
+            precision mediump float;
+            varying vec2 vTextureCoord;
+            uniform sampler2D uSampler;
+            uniform float customUniform;
+
+            void main(void)
+            {
+                vec2 uvs = vTextureCoord.xy;
+                vec4 fg = texture2D(uSampler, vTextureCoord);
+                fg.b = uvs.y + cos(customUniform);
+                gl_FragColor = fg;
+            }`
+        let filter = new PIXI.Filter(vertextShader2, fragmentShader2, {
+            customUniform: 0.5,
+            ratio: background.width / background.height,
+            progress: 0.5,
+            to: null,
+            _fromR:  background.width / background.height,
+            _toR:  background.width / background.height,
+        });
+        background.filters = [filter];
+        app.ticker.add((delta) => {
+            filter.uniforms.customUniform += 0.04 * delta;
+            // filter.uniforms.ratio = width / height;
+            // filter.uniforms.progress = progress;
+            // filter.uniforms.from = from.bind(0);  // texture2d
+            // filter.uniforms.to = to.bind(1);      // texture2d
+            // filter.uniforms._fromR = from.shape[0] / from.shape[1];
+            // filter.uniforms._toR = to.shape[0] / to.shape[1];
+        });
+    }</script>
+</body>
+
+</html>
