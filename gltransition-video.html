@@ -4,13 +4,21 @@
         body,
         html {
             margin: 0px;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        canvas {
             width: 100%;
             height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        button{
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+        canvas {
+            width: 960;
+            height: 540;
         }
     </style>
 </head>
@@ -24,7 +32,11 @@
     function onPlayVideo() {
         const GLTransitions = window.GLTransitions
         const app = new PIXI.Application({
-            antialias: true
+            antialias: true,
+            autoDensity: true, // !!!
+            resolution: 1,
+            width: 960,
+            height: 540,
         });
         document.body.appendChild(app.view);
 
@@ -32,8 +44,8 @@
         // create a video texture from a path
         const texture = PIXI.Texture.from('examples/assets/bunny.mp4');
         const videoSprite = new PIXI.Sprite(texture);
-        videoSprite.width = app.screen.width;
-        videoSprite.height = app.screen.height;
+        videoSprite.width = 960;
+        videoSprite.height = 540;
         app.stage.addChild(videoSprite);
         app.stop();
 
