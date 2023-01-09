@@ -1,0 +1,121 @@
+<html>
+<head>
+    <style>
+        body,
+        html {
+            margin: 0px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <script src="/lib/jquery.js"></script>
+    <script src="/lib/pixi.js"></script>
+    <script src="/lib/gsap.js"></script>
+    <script src="/lib/gl-transition.js"></script>
+    <script>window.onload = function () {
+        const GLTransitions = window.GLTransitions
+        const app = new PIXI.Application();
+        document.body.appendChild(app.view);
+
+        // Create background image
+        const background = PIXI.Sprite.from('examples/assets/road.jpg');
+        background.width = app.screen.width;
+        background.height = app.screen.height;
+        app.stage.addChild(background);
+        app.stop();
+
+        PIXI.Assets.load('examples/assets/barley.jpg').then(onAssetsLoaded);
+
+        const vertextShader = `
+        attribute vec2 aVertexPosition;
+        varying vec2 _uv;                          // gl-transition
+        uniform mat3 projectionMatrix;
+        uniform vec4 inputSize;
+        uniform vec4 outputFrame;
+        varying vec2 vTextureCoord;
+
+        vec4 filterVertexPosition( void )
+        {
+            vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;
+            return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+        }
+
+        vec2 filterTextureCoord( void )
+        {
+            return aVertexPosition * (outputFrame.zw * inputSize.zw);
+        }
+
+        void main(void)
+        {
+            gl_Position = filterVertexPosition();
+            vTextureCoord = filterTextureCoord();
+            _uv = vec2(0.5, 0.5) * (aVertexPosition +vec2(1.0, 1.0));    // gl-transition
+        }`
+
+        const fragmentShader = `
+            precision highp float;
+            varying vec2 vTextureCoord;
+            varying vec2 _uv;
+            uniform sampler2D uSampler, to;
+            uniform float progress, ratio, _fromR, _toR;
+            uniform float customUniform;
+            vec4 getFromColor(vec2 uv){
+                return texture2D(uSampler, .5+(uv-.5)*vec2(min(ratio/_fromR,1.), min(_fromR/ratio,1.)));
+            }
+            vec4 getToColor(vec2 uv){
+                return texture2D(to, .5+(uv-.5)*vec2(min(ratio/_toR,1.), min(_toR/ratio,1.)));
+            }
+
+            // pinwheel
+            uniform float speed; // = 2.0;
+            vec4 transition(vec2 uv) {
+                vec2 p = uv.xy / vec2(1.0).xy;
+                float circPos = atan(p.y - 0.5, p.x - 0.5) + progress * speed;
+                float modPos = mod(circPos, 3.1415 / 4.);
+                float signed = sign(progress - modPos);
+                return mix(getToColor(p), getFromColor(p), step(signed, 0.5));
+            }
+
+            void main(){
+                vec2 uv = vTextureCoord.xy;
+                vec4 fg = transition(vTextureCoord);
+                // fg.b = uv.y + sin(customUniform);
+                gl_FragColor = fg;
+            }`
+
+            function onAssetsLoaded(to) {
+                let filter = new PIXI.Filter(vertextShader, fragmentShader, {
+                    customUniform: 0,
+                    ratio: background.width / background.height,
+                    progress: 0,
+                    to: to,
+                    _fromR:  background.width / background.height,
+                    _toR:  background.width / background.height,
+                });
+                background.filters = [filter];
+                app.ticker.add((delta) => {
+                    filter.uniforms.customUniform += 0.005 * delta;
+                    // filter.uniforms.progress = Math.abs(Math.sin(filter.uniforms.customUniform))
+                    filter.uniforms.progress = filter.uniforms.customUniform % 1000
+                    filter.uniforms.progress = filter.uniforms.progress - Math.trunc(filter.uniforms.progress)
+
+                    // filter.uniforms.ratio = width / height;
+                    // filter.uniforms.progress = progress;
+                    // filter.uniforms.from = from.bind(0);  // texture2d
+                    // filter.uniforms.to = to.bind(1);      // texture2d
+                    // filter.uniforms._fromR = from.shape[0] / from.shape[1];
+                    // filter.uniforms._toR = to.shape[0] / to.shape[1];
+                });
+                app.start();
+            }
+    }</script>
+</body>
+
+</html>

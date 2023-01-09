@@ -25,13 +25,13 @@
         document.body.appendChild(app.view);
 
         // Create background image
-        const background = PIXI.Sprite.from('examples/assets/bg_grass.jpg');
+        const background = PIXI.Sprite.from('examples/assets/road.jpg');
         background.width = app.screen.width;
         background.height = app.screen.height;
         app.stage.addChild(background);
         app.stop();
 
-        PIXI.Assets.load('examples/assets/bg_rotate.jpg').then(onAssetsLoaded);
+        PIXI.Assets.load('examples/assets/barley.jpg').then(onAssetsLoaded);
 
         const vertextShader = `
         attribute vec2 aVertexPosition;
@@ -68,8 +68,7 @@
 
 
             uniform float customUniform;
-            uniform float count; // = 10.0
-            uniform float smoothness; // = 0.5
+            
 
             vec4 getFromColor(vec2 uv){
                 return texture2D(uSampler, .5+(uv-.5)*vec2(min(ratio/_fromR,1.), min(_fromR/ratio,1.)));
@@ -77,18 +76,450 @@
             vec4 getToColor(vec2 uv){
                 return texture2D(to, .5+(uv-.5)*vec2(min(ratio/_toR,1.), min(_toR/ratio,1.)));
             }
-            vec4 transition (vec2 uv) {
-                
-                // flip window
-                // float pr = smoothstep(-smoothness, 0.0, uv.x - progress * (1.0 + smoothness));
-                // float s = step(pr, fract(count * uv.x));
-                // return mix(getFromColor(uv), vec4(.5, .0, .5, 1), s);
 
-                vec4 color1 = getFromColor(uv);
-                vec4 color2 = getToColor(uv);
-                vec4 color = mix(color1, color2, progress);
-                return color; 
-            }
+// squareswire    -----   bad
+// uniform ivec2 squares;// = ivec2(10,10)
+// uniform vec2 direction;// = vec2(1.0, -0.5)
+// uniform float smoothness; // = 1.6
+
+// const vec2 center = vec2(0.5, 0.5);
+// vec4 transition (vec2 p) {
+//   vec2 v = normalize(direction);
+//   v /= abs(v.x)+abs(v.y);
+//   float d = v.x * center.x + v.y * center.y;
+//   float offset = smoothness;
+//   float pr = smoothstep(-offset, 0.0, v.x * p.x + v.y * p.y - (d-0.5+progress*(1.+offset)));
+//   vec2 squarep = fract(p*vec2(squares));
+//   vec2 squaremin = vec2(pr/2.0);
+//   vec2 squaremax = vec2(1.0 - pr/2.0);
+//   float a = (1.0 - step(progress, 0.0)) * step(squaremin.x, squarep.x) * step(squaremin.y, squarep.y) * step(squarep.x, squaremax.x) * step(squarep.y, squaremax.y);
+//   return mix(getFromColor(p), getToColor(p), a);
+// }
+
+
+// rotate_scale_fade    -----bad
+// #define PI 3.14159265359
+
+// uniform vec2 center; // = vec2(0.5, 0.5);
+// uniform float rotations; // = 1;
+// uniform float scale; // = 8;
+// uniform vec4 backColor; // = vec4(0.15, 0.15, 0.15, 1.0);
+
+// vec4 transition (vec2 uv) {
+  
+//   vec2 difference = uv - center;
+//   vec2 dir = normalize(difference);
+//   float dist = length(difference);
+  
+//   float angle = 2.0 * PI * rotations * progress;
+  
+//   float c = cos(angle);
+//   float s = sin(angle);
+  
+//   float currentScale = mix(scale, 1.0, 2.0 * abs(progress - 0.5));
+  
+//   vec2 rotatedDir = vec2(dir.x  * c - dir.y * s, dir.x * s + dir.y * c);
+//   vec2 rotatedUv = center + rotatedDir * dist / currentScale;
+  
+//   if (rotatedUv.x < 0.0 || rotatedUv.x > 1.0 ||
+//       rotatedUv.y < 0.0 || rotatedUv.y > 1.0)
+//     return backColor;
+    
+//   return mix(getFromColor(rotatedUv), getToColor(rotatedUv), progress);
+// }
+
+// fade
+// vec4 transition (vec2 uv) {
+//   return mix(
+//     getFromColor(uv),
+//     getToColor(uv),
+//     progress
+//   );
+// }
+
+
+//fade color
+// uniform vec3 color;// = vec3(0.0)
+// uniform float colorPhase/* = 0.4 */; // if 0.0, there is no black phase, if 0.9, the black phase is very important
+// vec4 transition (vec2 uv) {
+//   return mix(
+//     mix(vec4(color, 1.0), getFromColor(uv), smoothstep(1.0-colorPhase, 0.0, progress)),
+//     mix(vec4(color, 1.0), getToColor(uv), smoothstep(    colorPhase, 1.0, progress)),
+//     progress);
+// }
+
+
+
+
+// colorphase  ---bad
+// uniform vec4 fromStep; // = vec4(0.0, 0.2, 0.4, 0.0)
+// uniform vec4 toStep; // = vec4(0.6, 0.8, 1.0, 1.0)
+// vec4 transition (vec2 uv) {
+//   vec4 a = getFromColor(uv);
+//   vec4 b = getToColor(uv);
+//   return mix(a, b, smoothstep(fromStep, toStep, vec4(progress)));
+// }
+
+
+// circleopen
+// uniform float smoothness; // = 0.3
+// uniform bool opening; // = true
+
+// const vec2 center = vec2(0.5, 0.5);
+// const float SQRT_2 = 1.414213562373;
+
+// vec4 transition (vec2 uv) {
+//   float x = opening ? progress : 1.-progress;
+//   float m = smoothstep(-smoothness, 0.0, SQRT_2*distance(center, uv) - x*(1.+smoothness));
+//   return mix(getFromColor(uv), getToColor(uv), opening ? 1.-m : m);
+// }
+
+
+
+
+// circle --- bad
+// uniform vec2 center; // = vec2(0.5, 0.5);
+// uniform vec3 backColor; // = vec3(0.1, 0.1, 0.1);
+
+// vec4 transition (vec2 uv) {
+//   float distance = length(uv - center);
+//   float radius = sqrt(8.0) * abs(progress - 0.5);
+//   if (distance > radius) {
+//     return vec4(backColor, 1.0);
+//   }
+//   else {
+//     if (progress < 0.5) return getFromColor(uv);
+//     else return getToColor(uv);
+//   }
+// }
+
+
+// pinwheel
+uniform float speed; // = 2.0;
+vec4 transition(vec2 uv) {
+  vec2 p = uv.xy / vec2(1.0).xy;
+  float circPos = atan(p.y - 0.5, p.x - 0.5) + progress * speed;
+  float modPos = mod(circPos, 3.1415 / 4.);
+  float signed = sign(progress - modPos);
+  return mix(getToColor(p), getFromColor(p), step(signed, 0.5));
+}
+
+
+
+//ripple -----bad
+// uniform float amplitude; // = 100.0
+// uniform float speed; // = 50.0
+
+// vec4 transition (vec2 uv) {
+//   vec2 dir = uv - vec2(.5);
+//   float dist = length(dir);
+//   vec2 offset = dir * (sin(progress * dist * amplitude - progress * speed) + .5) / 30.;
+//   return mix(
+//     getFromColor(uv + offset),
+//     getToColor(uv),
+//     smoothstep(0.2, 1.0, progress)
+//   );
+// }
+
+
+
+// DreamyZoom
+// #define DEG2RAD 0.03926990816987241548078304229099 // 1/180*PI
+// uniform float rotation; // = 6
+// uniform float scale; // = 1.2
+// vec4 transition(vec2 uv) {
+//   // Massage parameters
+//   float phase = progress < 0.5 ? progress * 2.0 : (progress - 0.5) * 2.0;
+//   float angleOffset = progress < 0.5 ? mix(0.0, rotation * DEG2RAD, phase) : mix(-rotation * DEG2RAD, 0.0, phase);
+//   float newScale = progress < 0.5 ? mix(1.0, scale, phase) : mix(scale, 1.0, phase);
+  
+//   vec2 center = vec2(0, 0);
+
+//   // Calculate the source point
+//   vec2 assumedCenter = vec2(0.5, 0.5);
+//   vec2 p = (uv.xy - vec2(0.5, 0.5)) / newScale * vec2(ratio, 1.0);
+
+//   // This can probably be optimized (with distance())
+//   float angle = atan(p.y, p.x) + angleOffset;
+//   float dist = distance(center, p);
+//   p.x = cos(angle) * dist / ratio + 0.5;
+//   p.y = sin(angle) * dist + 0.5;
+//   vec4 c = progress < 0.5 ? getFromColor(p) : getToColor(p);
+
+//   // Finally, apply the color
+//   return c + (progress < 0.5 ? mix(0.0, 1.0, phase) : mix(1.0, 0.0, phase));
+// }
+
+
+
+// windowblinds
+// vec4 transition (vec2 uv) {
+//   float t = progress;
+  
+//   if (mod(floor(uv.y*100.*progress),2.)==0.)
+//     t*=2.-.5;
+  
+//   return mix(
+//     getFromColor(uv),
+//     getToColor(uv),
+//     mix(t, progress, smoothstep(0.8, 1.0, progress))
+//   );
+// }
+
+
+// kaleidoscope
+// uniform float speed; // = 1.0;
+// uniform float angle; // = 1.0;
+// uniform float power; // = 1.5;
+// vec4 transition(vec2 uv) {
+//   vec2 p = uv.xy / vec2(1.0).xy;
+//   vec2 q = p;
+//   float t = pow(progress, power)*speed;
+//   p = p -0.5;
+//   for (int i = 0; i < 7; i++) {
+//     p = vec2(sin(t)*p.x + cos(t)*p.y, sin(t)*p.y - cos(t)*p.x);
+//     t += angle;
+//     p = abs(mod(p, 2.0) - 1.0);
+//   }
+//   abs(mod(p, 1.0));
+//   return mix(
+//     mix(getFromColor(q), getToColor(q), progress),
+//     mix(getFromColor(p), getToColor(p), progress), 1.0 - 2.0*abs(progress - 0.5));
+// }
+
+
+// crosshatch --- bad
+// uniform vec2 center; // = vec2(0.5)
+// uniform float threshold; // = 3.0
+// uniform float fadeEdge; // = 0.1
+// float rand(vec2 co) {
+//   return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+// }
+// vec4 transition(vec2 p) {
+//   float dist = distance(center, p) / threshold;
+//   float r = progress - min(rand(vec2(p.y, 0.0)), rand(vec2(0.0, p.x)));
+//   return mix(getFromColor(p), getToColor(p), mix(0.0, mix(step(dist, r), 1.0, smoothstep(1.0-fadeEdge, 1.0, progress)), smoothstep(0.0, fadeEdge, progress)));    
+// }
+
+
+
+// Dreamy
+// vec2 offset(float progress, float x, float theta) {
+//   float phase = progress*progress + progress + theta;
+//   float shifty = 0.03*progress*cos(10.0*(progress+x));
+//   return vec2(0, shifty);
+// }
+// vec4 transition(vec2 p) {
+//   return mix(getFromColor(p + offset(progress, p.x, 0.0)), getToColor(p + offset(1.0-progress, p.x, 3.14)), progress);
+// }
+
+
+
+// Swirl
+// vec4 transition(vec2 UV)
+// {
+// 	float Radius = 1.0;
+// 	float T = progress;
+// 	UV -= vec2( 0.5, 0.5 );
+// 	float Dist = length(UV);
+// 	if ( Dist < Radius )
+// 	{
+// 		float Percent = (Radius - Dist) / Radius;
+// 		float A = ( T <= 0.5 ) ? mix( 0.0, 1.0, T/0.5 ) : mix( 1.0, 0.0, (T-0.5)/0.5 );
+// 		float Theta = Percent * Percent * A * 8.0 * 3.14159;
+// 		float S = sin( Theta );
+// 		float C = cos( Theta );
+// 		UV = vec2( dot(UV, vec2(C, -S)), dot(UV, vec2(S, C)) );
+// 	}
+// 	UV += vec2( 0.5, 0.5 );
+// 	vec4 C0 = getFromColor(UV);
+// 	vec4 C1 = getToColor(UV);
+// 	return mix( C0, C1, T );
+// }
+
+
+// CircleCrop           
+// uniform vec4 bgcolor; // = vec4(0.0, 0.0, 0.0, 1.0)
+// vec2 ratio2 = vec2(1.0, 1.0 / ratio);
+// float s = pow(2.0 * abs(progress - 0.5), 3.0);
+
+// vec4 transition(vec2 p) {
+//   float dist = length((vec2(p) - 0.5) * ratio2);
+//   return mix(
+//     progress < 0.5 ? getFromColor(p) : getToColor(p), // branching is ok here as we statically depend on progress uniform (branching won't change over pixels)
+//     bgcolor,
+//     step(s, dist)
+//   );
+// }
+
+// colorDistance ----
+// uniform float power; // = 5.0
+// vec4 transition(vec2 p) {
+//     vec4 fTex = getFromColor(p);
+//     vec4 tTex = getToColor(p);
+//     float m = step(distance(fTex, tTex), progress);
+//     return mix( mix(fTex, tTex, m), tTex, pow(progress, power));
+// }
+
+
+// wipeDown
+// vec4 transition(vec2 uv) {
+//     vec2 p=uv.xy/vec2(1.0).xy;
+//     vec4 a=getFromColor(p);
+//     vec4 b=getToColor(p);
+//     return mix(a, b, step(0.0+p.y, progress));
+// }
+
+// wipeUp
+// vec4 transition(vec2 uv) {
+//     vec2 p=uv.xy/vec2(1.0).xy;
+//     vec4 a=getFromColor(p);
+//     vec4 b=getToColor(p);
+//     return mix(a, b, step(1.0-p.y,progress));
+// }
+
+// wipeLeft
+// vec4 transition(vec2 uv) {
+//     vec2 p=uv.xy/vec2(1.0).xy;
+//     vec4 a=getFromColor(p);
+//     vec4 b=getToColor(p);
+//     return mix(a, b, step(1.0-p.x,progress));
+// }
+
+// wipeRight
+// vec4 transition(vec2 uv) {
+//     vec2 p=uv.xy/vec2(1.0).xy;
+//     vec4 a=getFromColor(p);
+//     vec4 b=getToColor(p);
+//     return mix(a, b, step(0.0+p.x,progress));
+// }
+
+            // uniform float intensity; // = 0.1
+            // const int passes = 6;
+            // vec4 transition(vec2 uv) {
+            //     vec4 c1 = vec4(0.0);
+            //     vec4 c2 = vec4(0.0);
+            //     float disp = intensity*(0.5-distance(0.5, progress));
+            //     for (int xi=0; xi<passes; xi++)
+            //     {
+            //         float x = float(xi) / float(passes) - 0.5;
+            //         for (int yi=0; yi<passes; yi++)
+            //         {
+            //             float y = float(yi) / float(passes) - 0.5;
+            //             vec2 v = vec2(x,y);
+            //             float d = disp;
+            //             c1 += getFromColor( uv + d*v);
+            //             c2 += getToColor( uv + d*v);
+            //         }
+            //     }
+            //     c1 /= float(passes*passes);
+            //     c2 /= float(passes*passes);
+            //     return mix(c1, c2, progress);
+            // }
+
+            // uniform float smoothness; // = 1.0
+            // const float PI = 3.141592653589;
+            // vec4 transition(vec2 p) {
+            //     vec2 rp = p*2.-1.;
+            //     return mix(
+            //         getToColor(p),
+            //         getFromColor(p),
+            //         smoothstep(0., smoothness, atan(rp.y,rp.x) - (progress-.5) * PI * 2.5)
+            //     );
+            // }
+
+
+            // uniform float strength; // = 0.1
+            // vec4 transition(vec2 p) {
+            //     vec4 ca = getFromColor(p);
+            //     vec4 cb = getToColor(p);
+            //     vec2 oa = (((ca.rg+ca.b)*0.5)*2.0-1.0);
+            //     vec2 ob = (((cb.rg+cb.b)*0.5)*2.0-1.0);
+            //     vec2 oc = mix(oa,ob,0.5)*strength;
+            //     float w0 = progress;
+            //     float w1 = 1.0-w0;
+            //     return mix(getFromColor(p+oc*w0), getToColor(p-oc*w1), progress);
+            // }
+
+
+            // vec4 transition(vec2 p) {
+            //     vec2 block = floor(p.xy / vec2(16));
+            //     vec2 uv_noise = block / vec2(64);
+            //     uv_noise += floor(vec2(progress) * vec2(1200.0, 3500.0)) / vec2(64);
+            //     vec2 dist = progress > 0.0 ? (fract(uv_noise) - 0.5) * 0.3 *(1.0 -progress) : vec2(0.0);
+            //     vec2 red = p + dist * 0.2;
+            //     vec2 green = p + dist * .3;
+            //     vec2 blue = p + dist * .5;
+            //     return vec4(mix(getFromColor(red), getToColor(red), progress).r,mix(getFromColor(green), getToColor(green), progress).g,mix(getFromColor(blue), getToColor(blue), progress).b,1.0);
+            // }
+
+            // uniform float dots;// = 20.0;
+            // uniform vec2 center;// = vec2(0, 0);
+            // vec4 transition(vec2 uv) {
+            //     bool nextImage = distance(fract(uv * dots), vec2(0.5, 0.5)) < ( progress / distance(uv, center));
+            //     return nextImage ? getToColor(uv) : getFromColor(uv);
+            // }
+
+
+            // uniform float zoom_quickness; // = 0.2
+            // float nQuick = clamp(zoom_quickness, 0.2, 1.0);
+            // vec2 zoom(vec2 uv, float amount) {
+            //     return 0.5 + ((uv - 0.5) * (1.0-amount));	
+            // }
+            // vec4 transition (vec2 uv) {
+            //     return mix(
+            //         getFromColor(zoom(uv, smoothstep(0.0, nQuick, progress))),
+            //         getToColor(uv),
+            //         smoothstep(nQuick-0.2, 1.0, progress)
+            //     );
+            // }
+
+            // uniform float amplitude; // = 30
+            // uniform float speed; // = 30
+            // vec4 transition(vec2 p) {
+            //     vec2 dir = p - vec2(.5);
+            //     float dist = length(dir);
+            //     vec2 offset = dir * sin(dist * amplitude - progress * speed);
+            //     return mix(getFromColor(p + offset), getToColor(p), progress);
+            // }
+
+            // uniform float strength; // = 0.5
+            // vec4 transition (vec2 uv) {
+            //     float displacement = texture2D(to, uv).r * strength;
+            //     vec2 uvFrom = vec2(uv.x + progress * displacement, uv.y);
+            //     vec2 uvTo = vec2(uv.x - (1.0 - progress) * displacement, uv.y);
+            //     return mix(getFromColor(uvFrom),getToColor(uvTo),progress);
+            // }
+
+            // uniform vec2 direction; // = vec2(0.0, 1.0)
+            // vec4 transition (vec2 uv) {
+            //     vec2 p = uv + progress * sign(direction);
+            //     vec2 f = fract(p);
+            //     return mix(
+            //         getToColor(f),
+            //         getFromColor(f),
+            //         step(0.0, p.y) * step(p.y, 1.0) * step(0.0, p.x) * step(p.x, 1.0)
+            //     );
+            // }
+
+
+            // uniform float count; // = 10.0
+            // uniform float smoothness; // = 0.5
+            // vec4 transition (vec2 uv) {
+            //     float pr = smoothstep(-smoothness, 0.0, uv.x - progress * (1.0 + smoothness));
+            //     float s = step(pr, fract(count * uv.x));
+            //     return mix(getFromColor(uv), getToColor(uv), s);
+            // }
+
+            
+            // vec4 transition (vec2 uv) {
+            //     vec4 color1 = getFromColor(uv);
+            //     vec4 color2 = getToColor(uv);
+            //     vec4 color = mix(color1, color2, progress);
+            //     return color; 
+            // }
+
+            
             void main(){
                 vec2 uv = vTextureCoord.xy;
                 vec4 fg = transition(vTextureCoord);
@@ -111,8 +542,11 @@
                 });
                 background.filters = [filter];
                 app.ticker.add((delta) => {
-                    filter.uniforms.customUniform += 0.02 * delta;
-                    filter.uniforms.progress = Math.abs(Math.sin(filter.uniforms.customUniform))
+                    filter.uniforms.customUniform += 0.005 * delta;
+                    // filter.uniforms.progress = Math.abs(Math.sin(filter.uniforms.customUniform))
+                    filter.uniforms.progress = filter.uniforms.customUniform % 1000
+                    filter.uniforms.progress = filter.uniforms.progress - Math.trunc(filter.uniforms.progress)
+
                     // filter.uniforms.ratio = width / height;
                     // filter.uniforms.progress = progress;
                     // filter.uniforms.from = from.bind(0);  // texture2d
