@@ -23,12 +23,14 @@
     <script>
     function onPlayVideo() {
         const GLTransitions = window.GLTransitions
-        const app = new PIXI.Application();
+        const app = new PIXI.Application({
+            antialias: true
+        });
         document.body.appendChild(app.view);
 
         // Create background image
         // create a video texture from a path
-        const texture = PIXI.Texture.from('examples/assets/landscape.mp4');
+        const texture = PIXI.Texture.from('examples/assets/bunny.mp4');
         const videoSprite = new PIXI.Sprite(texture);
         videoSprite.width = app.screen.width;
         videoSprite.height = app.screen.height;
@@ -36,10 +38,10 @@
         app.stop();
 
 
-        const texture2 = PIXI.Texture.from('examples/assets/bunny.mp4');
-        const video2Sprite = new PIXI.Sprite(texture2);
-        video2Sprite.width = app.screen.width;
-        video2Sprite.height = app.screen.height;
+        const texture2 = PIXI.Texture.from('examples/assets/landscape.mp4');
+        // const video2Sprite = new PIXI.Sprite(texture2);
+        // video2Sprite.width = app.screen.width;
+        // video2Sprite.height = app.screen.height;
 
         const vertextShader = `
         attribute vec2 aVertexPosition;
@@ -103,7 +105,7 @@
                 customUniform: 0,
                 ratio: videoSprite.width / videoSprite.height,
                 progress: 0,
-                to: video2Sprite.texture,
+                to: texture2,
                 _fromR:  videoSprite.width / videoSprite.height,
                 _toR:  videoSprite.width / videoSprite.height,
             });
